@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <SDL2/SDL.h>
 
 
@@ -9,6 +10,8 @@
 int thread_exit = 0;
 int thread_timer(void *data)
 {
+
+    thread_exit = 0;
 
     while (!thread_exit)
     {
@@ -48,7 +51,7 @@ int main(int argc, char const *argv[])
 
     Uint8 video_buf[BLOCK_SIZE];
     Uint8 *video_pos, *video_end;
-    int video_buf_len, blank_spacing_len;
+    unsigned int video_buf_len, blank_spacing_len;
 
     SDL_Init(SDL_INIT_VIDEO);
 
@@ -87,6 +90,32 @@ int main(int argc, char const *argv[])
             
             if ((video_pos + video_frame_len) > video_end)
             {
+                int remain_len = video_end - video_pos;
+                if (remain_len && !blank_spacing_len)
+                {
+                    memcpy(video_buf, video_pos, remain_len);
+                    video_pos = video_buf;
+                    video_end = video_buf + remain_len;
+                    blank_spacing_len = BLOCK_SIZE - remain_len;
+                }
+
+                if (video_end == (video_buf + BLOCK_SIZE))
+                {
+                    video_pos = video_buf;
+                    video_end = video_buf;
+                    blank_spacing_len = BLOCK_SIZE;
+                }
+                
+
+                video_buf_len = fread(video_end, 1, blank_spacing_len, videofile);
+                if (video_buf_len <= 0)
+                {
+                    thread_exit = 1;
+                    break;
+                }
+                
+                video_end += video_buf_len;
+                blank_spacing_len -= video_buf_len;
                 
             }
             
@@ -109,7 +138,7 @@ int main(int argc, char const *argv[])
             SDL_GetWindowSize(window, &w_w, &w_h);
         }else if (event.type == SDL_QUIT)
         {
-            
+            break;
         }else if (event.type == END_EVENT) {
             thread_exit = 1;
         }
